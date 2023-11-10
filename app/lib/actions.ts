@@ -1,50 +1,63 @@
-'use server'
+"use server";
 
-import { z } from "zod"
-import {sql} from '@vercel/postgres'
-import {revalidatePath} from 'next/cache'
-import {redirect} from 'next/navigation'
-const InvoiceSchema =z.object({
-    id : z.string(),
-    customerId:z.string(),
-    amount : z.coerce.number(),
-    status:z.enum(['pending' , 'paid']),
-    date:z.string()
-})
-const createInvoice = InvoiceSchema.omit({id:true,date:true})
+import { z } from "zod";
+import { sql } from "@vercel/postgres";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+const InvoiceSchema = z.object({
+  id: z.string(),
+  customerId: z.string(),
+  amount: z.coerce.number(),
+  status: z.enum(["pending", "paid"]),
+  date: z.string(),
+});
+const createInvoice = InvoiceSchema.omit({ id: true, date: true });
 
-export async function createInvoices(formData:FormData){
-    const {customerId,amount,status} = createInvoice.parse({
-        customerId:formData.get('customerId'),
-        status:formData.get('status'),
-        amount: formData.get('amount')
-    })
-    const amountInCents = amount*100;
-    const date = new Date().toISOString().split('T')[0]
+export async function createInvoices(formData: FormData) {
+  const { customerId, amount, status } = createInvoice.parse({
+    customerId: formData.get("customerId"),
+    status: formData.get("status"),
+    amount: formData.get("amount"),
+  });
+  const amountInCents = amount * 100;
+  const date = new Date().toISOString().split("T")[0];
+  try {
     await sql`INSERT INTO invoices (customer_id,amount,status,date)
-    VALUES(${customerId} , ${amountInCents} , ${status} ,${date})`
-    revalidatePath('/dashboard/invoices')
-    redirect('/dashboard/invoices')
+    VALUES(${customerId} , ${amountInCents} , ${status} ,${date})`;
+  } catch (error) {
+    return { message: "could not create invoice" + " " + error };
+  }
+  revalidatePath("/dashboard/invoices");
+  redirect("/dashboard/invoices");
 }
 
-const UpdateInvoice =InvoiceSchema.omit({date:true,id:true})
-export async function updateInvoice(id:string , formData:FormData){
-    const {customerId,amount,status} =UpdateInvoice.parse({
-        customerId:formData.get('customerId'),
-        amount:formData.get('amount'),
-        status:formData.get('status')
-    })
-    const amountInCents = amount * 100;
+const UpdateInvoice = InvoiceSchema.omit({ date: true, id: true });
+export async function updateInvoice(id: string, formData: FormData) {
+  const { customerId, amount, status } = UpdateInvoice.parse({
+    customerId: formData.get("customerId"),
+    amount: formData.get("amount"),
+    status: formData.get("status"),
+  });
+  const amountInCents = amount * 100;
+  try {
     await sql`
     UPDATE invoices
     SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
     WHERE id = ${id}
   `;
-    revalidatePath('/dashboard/invoices')
-    redirect('/dashboard/invoices')
+  } catch (error) {
+    return { message: "couldnt update invoice" + " " + error };
+  }
+  revalidatePath("/dashboard/invoices");
+  redirect("/dashboard/invoices");
 }
 
-export async function deleteInvoice(id:string){
-    await sql `DELETE from invoices WHERE id=${id}`
-    revalidatePath('/dashboard/invoices')
+export async function deleteInvoice(id: string) {
+  throw new Error("failed to delete invoice");
+  try {
+    await sql`DELETE from invoices WHERE id=${id}`;
+  } catch (error) {
+    return { message: "couldnt delete invoice" + " " + error };
+  }
+  revalidatePath("/dashboard/invoices");
 }
